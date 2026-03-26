@@ -291,7 +291,7 @@ export default function MatchDetail() {
       </div>
 
       {/* Prediction Window Not Open Yet */}
-      {predictionWindow.status === 'too_early' && match.status === 'upcoming' && (
+      {predWindow.status === 'too_early' && match.status === 'upcoming' && (
         <div className="section">
           <div className="prediction-locked-card" style={{ background: 'rgba(56, 189, 248, 0.06)', borderColor: 'rgba(56, 189, 248, 0.15)' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2">
@@ -301,7 +301,7 @@ export default function MatchDetail() {
               <h3 style={{ color: 'var(--text-primary)' }}>Predictions Haven't Opened</h3>
               <p className="text-secondary">
                 Predictions open 7 hours prior to the match and close at the toss. 
-                They will be available in <strong>{formatTimeDiff(predictionWindow.timeUntilEvent)}</strong>.
+                They will be available in <strong>{formatTimeDiff(predWindow.timeUntilEvent)}</strong>.
               </p>
             </div>
           </div>
@@ -309,7 +309,7 @@ export default function MatchDetail() {
       )}
 
       {/* Prediction Locked Warning */}
-      {predictionWindow.status === 'closed' && match.status === 'upcoming' && (
+      {predWindow.status === 'closed' && match.status === 'upcoming' && (
         <div className="section">
           <div className="prediction-locked-card">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
