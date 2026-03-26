@@ -1,6 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
+import { getUserRank } from '../utils/rankUtils';
 
 export default function Leaderboard() {
   const { profile } = useAuth();
@@ -36,7 +37,10 @@ export default function Leaderboard() {
                     <span>{leaderboardData[1].full_name?.charAt(0)}</span>
                   )}
                 </div>
-                <span className="podium-name">{leaderboardData[1].full_name?.split(' ')[0]}</span>
+                <span className="podium-name">
+                  {leaderboardData[1].full_name?.split(' ')[0]}
+                  <span title={getUserRank(leaderboardData[1].points).title} style={{ marginLeft: '4px', cursor: 'help' }}>{getUserRank(leaderboardData[1].points).icon}</span>
+                </span>
                 <span className="podium-points">{leaderboardData[1].points} pts</span>
                 <div className="podium-bar">2</div>
               </div>
@@ -50,7 +54,10 @@ export default function Leaderboard() {
                   <span>{leaderboardData[0].full_name?.charAt(0)}</span>
                 )}
               </div>
-              <span className="podium-name">{leaderboardData[0].full_name?.split(' ')[0]}</span>
+              <span className="podium-name">
+                {leaderboardData[0].full_name?.split(' ')[0]}
+                <span title={getUserRank(leaderboardData[0].points).title} style={{ marginLeft: '4px', cursor: 'help' }}>{getUserRank(leaderboardData[0].points).icon}</span>
+              </span>
               <span className="podium-points">{leaderboardData[0].points} pts</span>
               <div className="podium-bar tall">1</div>
             </div>
@@ -63,7 +70,10 @@ export default function Leaderboard() {
                     <span>{leaderboardData[2].full_name?.charAt(0)}</span>
                   )}
                 </div>
-                <span className="podium-name">{leaderboardData[2].full_name?.split(' ')[0]}</span>
+                <span className="podium-name">
+                  {leaderboardData[2].full_name?.split(' ')[0]}
+                  <span title={getUserRank(leaderboardData[2].points).title} style={{ marginLeft: '4px', cursor: 'help' }}>{getUserRank(leaderboardData[2].points).icon}</span>
+                </span>
                 <span className="podium-points">{leaderboardData[2].points} pts</span>
                 <div className="podium-bar short">3</div>
               </div>
@@ -107,6 +117,9 @@ export default function Leaderboard() {
                       <span>
                         {player.full_name}
                         {player.id === profile?.id && <span className="you-badge" style={{ marginLeft: 6 }}>You</span>}
+                      </span>
+                      <span className="rank-badge" title={getUserRank(player.points).title} style={{ marginLeft: '8px', cursor: 'help', fontSize: '1.1em' }}>
+                        {getUserRank(player.points).icon}
                       </span>
                     </div>
                   </td>

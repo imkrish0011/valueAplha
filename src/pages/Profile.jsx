@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useNavigate } from 'react-router-dom';
+import { getUserRank } from '../utils/rankUtils';
 
 const BASE_ACHIEVEMENTS = [
   { id: 'first_pred', icon: '🎯', title: 'First Prediction', desc: 'Make your first match prediction' },
@@ -76,7 +77,11 @@ export default function Profile() {
             <div className="profile-card-info">
               <h2>{profile?.full_name}</h2>
               <span className="profile-username">@{profile?.username}</span>
-              <span className="profile-joined">Member since {memberSince}</span>
+              <span className="profile-joined" style={{ marginBottom: '8px', display: 'block' }}>Member since {memberSince}</span>
+              <div className="profile-rank" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.05)', padding: '4px 12px', borderRadius: '100px', width: 'fit-content', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <span style={{ fontSize: '1.2em' }}>{getUserRank(totalPoints).icon}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{getUserRank(totalPoints).title}</span>
+              </div>
             </div>
           </div>
           <div className="profile-card-stats">

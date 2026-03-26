@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLobby } from '../contexts/LobbyContext';
 import { getMatchById, getPlayersForMatch, getTimeUntilMatch, getPredictionWindow, formatTimeDiff, TEAM_PLAYERS } from '../lib/matchData';
 import { supabase } from '../lib/supabase';
+import confetti from 'canvas-confetti';
+import { toPng } from 'html-to-image';
 
 const CATEGORIES = [
   { key: 'winner', label: 'Match Winner', icon: '🏆', desc: 'Which team will win?', type: 'team' },
@@ -28,9 +30,14 @@ export default function MatchDetail() {
   const [error, setError] = useState(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [editCount, setEditCount] = useState(0);
+  const [predictionPoints, setPredictionPoints] = useState(0); // Track points for confetti
 
   const MAX_EDITS = 3;
   const maxEditsReached = editCount >= MAX_EDITS;
+
+  // Live timer state
+  const [predWindow, setPredWindow] = useState(match ? getPredictionWindow(match.date, match.time) : { status: 'closed', timeUntilEvent: 0 });
+  const [liveTimeLeft, setLiveTimeLeft] = useState(match ? getTimeUntilMatch(match.date, match.time) : null);
 
   if (!match) {
     return (
@@ -54,9 +61,18 @@ export default function MatchDetail() {
     );
   }
 
-  const timeLeft = getTimeUntilMatch(match.date, match.time);
-  const predictionWindow = getPredictionWindow(match.date, match.time);
-  const canPredict = predictionWindow.status === 'open';
+  // 4. Live Ticking Timer Effect
+  useEffect(() => {
+    if (!match || match.status === 'completed') return;
+    
+    const interval = setInterval(() => {
+      setPredWindow(getPredictionWindow(match.date, match.time));
+      setLiveTimeLeft(getTimeUntilMatch(match.date, match.time, true)); // Assume true passes for seconds if we update matchData
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [match]);
+
+  const canPredict = predWindow.status === 'open';
   
   const allPlayers = getPlayersForMatch(match);
   const teamAPlayers = TEAM_PLAYERS[match.teamA.short] || [];
@@ -69,7 +85,7 @@ export default function MatchDetail() {
       try {
         const { data, error } = await supabase
           .from('predictions')
-          .select('*, edit_count')
+          .select('*, edit_count, points')
           .eq('user_id', profile.id)
           .eq('lobby_id', activeLobby.id)
           .eq('match_id', match.id)
@@ -98,6 +114,7 @@ export default function MatchDetail() {
           
           setPredictions(loadedPreds);
           setEditCount(data.edit_count || 0);
+          setPredictionPoints(data.points || 0);
           if (Object.keys(loadedPreds).length > 0) {
             setSubmitted(true);
           }
@@ -111,6 +128,25 @@ export default function MatchDetail() {
     
     fetchExistingPrediction();
   }, [match?.id, profile?.id, activeLobby?.id]);
+
+  // 3. Perfect Match Confetti Animation 🎉
+  useEffect(() => {
+    if (match?.status === 'completed' && predictionPoints === 100 && !loadingInitial) {
+      const duration = 3 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+      
+      const interval = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+        const particleCount = 50 * (timeLeft / duration);
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: Math.random(), y: Math.random() - 0.2 } }));
+      }, 250);
+      return () => clearInterval(interval);
+    }
+  }, [match?.status, predictionPoints, loadingInitial]);
 
   const completedCount = Object.keys(predictions).length;
   const totalCategories = CATEGORIES.length;
@@ -162,6 +198,33 @@ export default function MatchDetail() {
     }
   }
 
+  async function handleShareText() {
+    const text = `🏏 IPL Predictor: ${match.teamA.short} vs ${match.teamB.short}\n` +
+      CATEGORIES.map(c => predictions[c.key] ? `${c.icon} ${c.label}: ${typeof predictions[c.key] === 'string' ? predictions[c.key] : predictions[c.key].name}` : '').filter(Boolean).join('\n') +
+      `\n🔗 Can you beat my score?`;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Predictions copied to clipboard! (Wordle Style)');
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  }
+
+  async function handleDownloadImage() {
+    const node = document.getElementById('shareable-card');
+    if (!node) return;
+    try {
+      const dataUrl = await toPng(node, { cacheBust: true, style: { background: '#161625' } });
+      const link = document.createElement('a');
+      link.download = `prediction-${match.teamA.short}-vs-${match.teamB.short}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to download image: ', err);
+    }
+  }
+
   const filteredPlayers = searchQuery
     ? allPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allPlayers;
@@ -193,12 +256,12 @@ export default function MatchDetail() {
             </div>
             <div className="match-detail-vs">
               <span className="match-vs-badge">VS</span>
-              {timeLeft && (
-                <div className="countdown-display">
+              {liveTimeLeft && (
+                <div className="countdown-display" style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.05em' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                   </svg>
-                  <span>Starts in {timeLeft}</span>
+                  <span>Starts in {liveTimeLeft}</span>
                 </div>
               )}
             </div>
@@ -288,26 +351,41 @@ export default function MatchDetail() {
       {submitted && (
         <div className="section">
           <div className="prediction-success-card">
-            <div className="success-icon-big">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
+            
+            <div id="shareable-card" style={{ padding: '24px', background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+              <div className="success-icon-big">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <h3>{match.teamA.short} vs {match.teamB.short} Predictions 🎉</h3>
+              <p className="text-secondary">
+                {completedCount} out of {totalCategories} predictions locked in.
+              </p>
+              <div className="submitted-summary">
+                {Object.entries(predictions).map(([key, value]) => {
+                  const cat = CATEGORIES.find(c => c.key === key);
+                  return (
+                    <div key={key} className="submitted-item">
+                      <span className="submitted-icon">{cat?.icon}</span>
+                      <span className="submitted-label">{cat?.label}:</span>
+                      <strong>{typeof value === 'string' ? value : value?.name || value}</strong>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <h3>Predictions Submitted! 🎉</h3>
-            <p className="text-secondary">
-              You submitted {completedCount} out of {totalCategories} predictions. Good luck!
-            </p>
-            <div className="submitted-summary">
-              {Object.entries(predictions).map(([key, value]) => {
-                const cat = CATEGORIES.find(c => c.key === key);
-                return (
-                  <div key={key} className="submitted-item">
-                    <span className="submitted-icon">{cat?.icon}</span>
-                    <span className="submitted-label">{cat?.label}:</span>
-                    <strong>{typeof value === 'string' ? value : value?.name || value}</strong>
-                  </div>
-                );
-              })}
+
+            {/* Share / Action Buttons (Not included in image export) */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button className="btn" onClick={handleShareText} style={{ flex: 1, minWidth: '180px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Copy Text (Wordle)
+              </button>
+              <button className="btn" onClick={handleDownloadImage} style={{ flex: 1, minWidth: '180px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', background: 'var(--elevated)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Image
+              </button>
             </div>
             
             {/* Allow editing if still open and edits remain */}
@@ -319,7 +397,7 @@ export default function MatchDetail() {
               ) : (
                 <button 
                   className="btn btn-outline" 
-                  style={{ marginTop: '24px' }}
+                  style={{ marginTop: '16px', width: '100%' }}
                   onClick={() => setSubmitted(false)}
                 >
                   Edit Predictions ({MAX_EDITS - editCount} edit{MAX_EDITS - editCount !== 1 ? 's' : ''} remaining)
