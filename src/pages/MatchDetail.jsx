@@ -121,14 +121,20 @@ export default function MatchDetail() {
 
   async function handleSubmit() {
     if (completedCount < 1) return;
+
+    // 1. SAFETY CHECK: Block submission if they are already at max edits
+    if (editCount >= MAX_EDITS) {
+      setError("You have reached the maximum of 3 edits for this match.");
+      return;
+    }
     
     setSubmitting(true);
     setError(null);
     
     try {
-      // If this is an edit (not the first submission), increment edit_count
-      const isEdit = submitted;
-      const newEditCount = isEdit ? editCount + 1 : editCount;
+      // 2. LOGIC FIX: Check if they already had predictions loaded from the DB.
+      const isUpdating = editCount > 0 || Object.keys(predictions).length > 0;
+      const newEditCount = isUpdating ? editCount + 1 : 0;
 
       const { error: dbError } = await supabase
         .from('predictions')
@@ -145,6 +151,8 @@ export default function MatchDetail() {
         }, { onConflict: 'user_id,lobby_id,match_id' });
 
       if (dbError) throw dbError;
+      
+      // Update local state to reflect the new count
       setEditCount(newEditCount);
       setSubmitted(true);
     } catch (err) {
