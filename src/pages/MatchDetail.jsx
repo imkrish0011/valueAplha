@@ -27,6 +27,10 @@ export default function MatchDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const [editCount, setEditCount] = useState(0);
+
+  const MAX_EDITS = 3;
+  const maxEditsReached = editCount >= MAX_EDITS;
 
   if (!match) {
     return (
@@ -65,7 +69,7 @@ export default function MatchDetail() {
       try {
         const { data, error } = await supabase
           .from('predictions')
-          .select('*')
+          .select('*, edit_count')
           .eq('user_id', profile.id)
           .eq('lobby_id', activeLobby.id)
           .eq('match_id', match.id)
@@ -93,6 +97,7 @@ export default function MatchDetail() {
           }
           
           setPredictions(loadedPreds);
+          setEditCount(data.edit_count || 0);
           if (Object.keys(loadedPreds).length > 0) {
             setSubmitted(true);
           }
@@ -121,6 +126,10 @@ export default function MatchDetail() {
     setError(null);
     
     try {
+      // If this is an edit (not the first submission), increment edit_count
+      const isEdit = submitted;
+      const newEditCount = isEdit ? editCount + 1 : editCount;
+
       const { error: dbError } = await supabase
         .from('predictions')
         .upsert({
@@ -131,10 +140,12 @@ export default function MatchDetail() {
           most_runs: predictions.mostRuns?.name || null,
           most_sixes: predictions.mostSixes?.name || null,
           most_fours: predictions.mostFours?.name || null,
-          most_wickets: predictions.mostWickets?.name || null
+          most_wickets: predictions.mostWickets?.name || null,
+          edit_count: newEditCount
         }, { onConflict: 'user_id,lobby_id,match_id' });
 
       if (dbError) throw dbError;
+      setEditCount(newEditCount);
       setSubmitted(true);
     } catch (err) {
       setError(err.message || 'Failed to save predictions.');
@@ -291,15 +302,21 @@ export default function MatchDetail() {
               })}
             </div>
             
-            {/* Allow editing if still open */}
+            {/* Allow editing if still open and edits remain */}
             {canPredict && (
-              <button 
-                className="btn btn-outline" 
-                style={{ marginTop: '24px' }}
-                onClick={() => setSubmitted(false)}
-              >
-                Edit Predictions
-              </button>
+              maxEditsReached ? (
+                <p className="text-secondary" style={{ marginTop: '24px', color: 'var(--danger, #ef4444)' }}>
+                  ⚠️ You have reached the maximum of 3 edits for this match.
+                </p>
+              ) : (
+                <button 
+                  className="btn btn-outline" 
+                  style={{ marginTop: '24px' }}
+                  onClick={() => setSubmitted(false)}
+                >
+                  Edit Predictions ({MAX_EDITS - editCount} edit{MAX_EDITS - editCount !== 1 ? 's' : ''} remaining)
+                </button>
+              )
             )}
           </div>
         </div>
