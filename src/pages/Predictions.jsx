@@ -15,6 +15,19 @@ export default function Predictions() {
     async function fetchPredictions() {
       if (!profile || !activeLobby) return;
 
+      const cacheKey = `predictions_${activeLobby.id}_${profile.id}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+            setPredictions(parsed.data || []);
+            setLoading(false);
+            return;
+          }
+        } catch(e) {}
+      }
+
       try {
         const { data, error } = await supabase
           .from('predictions')
@@ -25,6 +38,7 @@ export default function Predictions() {
 
         if (error) throw error;
         setPredictions(data || []);
+        localStorage.setItem(cacheKey, JSON.stringify({ data: data || [], timestamp: Date.now() }));
       } catch (err) {
         console.error('Error fetching predictions:', err);
       } finally {

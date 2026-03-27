@@ -9,7 +9,7 @@ export default function Matches() {
 
   const matches = MATCH_SCHEDULE.map(m => ({
     ...m,
-    status: getMatchStatus(m.date),
+    status: getMatchStatus(m.date, m.time),
   }));
 
   const filtered = filter === 'all' ? matches : matches.filter(m => m.status === filter);

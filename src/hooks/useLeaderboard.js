@@ -8,11 +8,29 @@ export function useLeaderboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchScores() {
+    async function fetchScores(forceNetwork = false) {
       if (!activeLobby || !members || members.length === 0) {
         setLeaderboardData([]);
         setLoading(false);
         return;
+      }
+
+      const cacheKey = `leaderboard_${activeLobby.id}`;
+      
+      // Try cache first
+      if (!forceNetwork) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            // 5 minutes TTL
+            if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+              setLeaderboardData(parsed.data);
+              setLoading(false);
+              return;
+            }
+          } catch(e) {}
+        }
       }
 
       setLoading(true);
@@ -84,6 +102,8 @@ export function useLeaderboard() {
         }
 
         setLeaderboardData(leaderboard);
+        // Save to cache
+        localStorage.setItem(cacheKey, JSON.stringify({ data: leaderboard, timestamp: Date.now() }));
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
       } finally {
@@ -104,8 +124,8 @@ export function useLeaderboard() {
         table: 'predictions',
         filter: `lobby_id=eq.${activeLobby.id}`
       }, () => {
-        // Refetch when any prediction is made/updated
-        fetchScores();
+        // Refetch when any prediction is made/updated bypass cache
+        fetchScores(true);
       })
       .subscribe();
       

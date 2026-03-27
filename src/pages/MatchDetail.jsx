@@ -191,6 +191,9 @@ export default function MatchDetail() {
       // Update local state to reflect the new count
       setEditCount(newEditCount);
       setSubmitted(true);
+      
+      // Clear the local cache so the My Predictions page fetches the new result
+      localStorage.removeItem(`predictions_${activeLobby.id}_${profile.id}`);
     } catch (err) {
       setError(err.message || 'Failed to save predictions.');
     } finally {

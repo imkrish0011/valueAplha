@@ -104,6 +104,14 @@ export function LobbyProvider({ children }) {
           .delete()
           .eq('lobby_id', activeLobby.id)
           .eq('user_id', profile.id);
+
+        // If the user was the last member in the lobby, delete the lobby entirely
+        if (members.length <= 1) {
+          await supabase
+            .from('lobbies')
+            .delete()
+            .eq('id', activeLobby.id);
+        }
       } catch (err) {
         console.error('Failed to leave lobby:', err);
       }

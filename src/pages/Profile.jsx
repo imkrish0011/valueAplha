@@ -18,7 +18,7 @@ const BASE_ACHIEVEMENTS = [
 
 export default function Profile() {
   const { profile, signOut } = useAuth();
-  const { activeLobby, leaveLobby, clearLobbyLocal } = useLobby();
+  const { activeLobby, leaveLobby, clearLobbyLocal, members } = useLobby();
   const { leaderboardData } = useLeaderboard();
   const navigate = useNavigate();
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -182,7 +182,9 @@ export default function Profile() {
             <h2>Leave Lobby?</h2>
             <p className="text-secondary">
               If you leave, you will be disconnected from the leaderboard and stop earning points for this lobby.
-              You can always join back later if you have the 6-digit code.
+              {members?.length <= 1 
+                ? <><br/><br/><strong style={{color: 'var(--danger, #ef4444)'}}>Warning:</strong> You are the last member. If you leave, this lobby and its code will be <strong>permanently deleted</strong>.</>
+                : " You can always join back later if you have the 6-digit code."}
             </p>
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowLeaveModal(false)}>Cancel</button>
